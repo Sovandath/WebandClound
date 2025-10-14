@@ -1,3 +1,114 @@
 from django.contrib import admin
+from .models import (
+    User, Category, SubCategory, Source, Product, Inventory, NewStock,
+    Customer, Invoice, Purchase, Transaction, ActivityLog
+)
 
-# Register your models here.
+# ------------------- User -------------------
+@admin.register(User)
+class UserAdmin(admin.ModelAdmin):
+    list_display = ('name', 'email', 'role', 'createdAt')
+    list_filter = ('role',)
+    search_fields = ('name', 'email')
+    ordering = ('-createdAt',)
+
+# ------------------- Category -------------------
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug', 'createdAt')
+    search_fields = ('name',)
+    prepopulated_fields = {'slug': ('name',)}
+
+# ------------------- SubCategory -------------------
+@admin.register(SubCategory)
+class SubCategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'category', 'createdAt')
+    list_filter = ('category',)
+    search_fields = ('name', 'category__name')
+
+# ------------------- Source -------------------
+@admin.register(Source)
+class SourceAdmin(admin.ModelAdmin):
+    list_display = ('name', 'contactPerson', 'phone', 'email')
+    search_fields = ('name', 'contactPerson', 'email')
+
+# ------------------- Product -------------------
+@admin.register(Product)
+class ProductAdmin(admin.ModelAdmin):
+    list_display = ('productName', 'skuCode', 'subcategory', 'status', 'unit')
+    list_filter = ('status', 'subcategory__category', 'subcategory')
+    search_fields = ('productName', 'skuCode')
+    ordering = ('productName',)
+    fieldsets = (
+        (None, {
+            'fields': ('productName', 'skuCode', 'description', 'image')
+        }),
+        ('Categorization', {
+            'fields': ('subcategory', 'source', 'status', 'unit')
+        }),
+    )
+
+# ------------------- Inventory -------------------
+@admin.register(Inventory)
+class InventoryAdmin(admin.ModelAdmin):
+    list_display = ('product', 'quantity', 'location', 'reorderLevel', 'updatedAt')
+    list_filter = ('location',)
+    search_fields = ('product__productName', 'location')
+    autocomplete_fields = ('product',)
+
+# ------------------- NewStock -------------------
+@admin.register(NewStock)
+class NewStockAdmin(admin.ModelAdmin):
+    list_display = ('inventory', 'quantity', 'purchasePrice', 'receivedDate', 'supplier')
+    list_filter = ('receivedDate', 'supplier')
+    search_fields = ('inventory__product__productName', 'supplier__name')
+    autocomplete_fields = ('inventory', 'supplier', 'addedByUser')
+    date_hierarchy = 'receivedDate'
+
+# ------------------- Customer -------------------
+@admin.register(Customer)
+class CustomerAdmin(admin.ModelAdmin):
+    list_display = ('name', 'customerType', 'phone', 'email', 'firstPurchaseDate')
+    list_filter = ('customerType',)
+    search_fields = ('name', 'email', 'phone')
+
+# ------------------- Purchase Inline for Invoice -------------------
+class PurchaseInline(admin.TabularInline):
+    model = Purchase
+    extra = 1
+    autocomplete_fields = ('product',)
+
+# ------------------- Invoice -------------------
+@admin.register(Invoice)
+class InvoiceAdmin(admin.ModelAdmin):
+    list_display = ('invoiceId', 'customer', 'grandTotal', 'status', 'invoiceDate', 'createdByUser')
+    list_filter = ('status', 'paymentMethod', 'invoiceDate')
+    search_fields = ('invoiceId', 'customer__name')
+    autocomplete_fields = ('customer', 'createdByUser')
+    date_hierarchy = 'invoiceDate'
+    inlines = [PurchaseInline]
+
+# ------------------- Purchase -------------------
+@admin.register(Purchase)
+class PurchaseAdmin(admin.ModelAdmin):
+    list_display = ('invoice', 'product', 'quantity', 'pricePerUnit', 'subtotal')
+    search_fields = ('invoice__invoiceId', 'product__productName')
+    autocomplete_fields = ('invoice', 'product')
+
+# ------------------- Transaction -------------------
+@admin.register(Transaction)
+class TransactionAdmin(admin.ModelAdmin):
+    list_display = ('transactionId', 'invoice', 'amountPaid', 'paymentMethod', 'transactionStatus', 'transactionDate')
+    list_filter = ('transactionStatus', 'paymentMethod', 'transactionDate')
+    search_fields = ('transactionId', 'invoice__invoiceId', 'paymentReference')
+    autocomplete_fields = ('invoice', 'customer', 'recordedByUser')
+    date_hierarchy = 'transactionDate'
+
+# ------------------- ActivityLog -------------------
+@admin.register(ActivityLog)
+class ActivityLogAdmin(admin.ModelAdmin):
+    list_display = ('actionType', 'user', 'description', 'createdAt')
+    list_filter = ('actionType', 'user')
+    search_fields = ('description', 'user__name')
+    date_hierarchy = 'createdAt'
+    readonly_fields = ('createdAt',)
