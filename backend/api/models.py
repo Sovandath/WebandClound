@@ -2,13 +2,15 @@ from django.db import models
 
 from django.contrib.auth.models import AbstractUser
 
-# Reusable role choices for User model
+# Reusable role choices for model
 ROLE_CHOICES = [
-    ('User', 'User'),
+    ('administartor', 'Administrator'),
+    ('manager', 'Manager'),
+    ('staff', 'Staff'),
 ]
 
 class User(AbstractUser):
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='User')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='administrator')
 
     def __str__(self):
         return f"{self.username} ({self.role})"

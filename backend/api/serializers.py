@@ -17,7 +17,7 @@ from .models import (
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['userId', 'name', 'email', 'role', 'googleId', 'createdAt', 'updatedAt']
+        fields = ['id', 'username', 'email', 'role', 'is_staff']
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
