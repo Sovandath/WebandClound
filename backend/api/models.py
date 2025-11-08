@@ -1,23 +1,17 @@
 from django.db import models
 
+from django.contrib.auth.models import AbstractUser
+
 # Reusable role choices for User model
 ROLE_CHOICES = [
-    ('Admin', 'Admin'),
-    ('Cashier', 'Cashier'),
+    ('User', 'User'),
 ]
 
-class User(models.Model):
-    userId = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=255)
-    email = models.EmailField(unique=True)
-    passwordHash = models.CharField(max_length=255, null=True, blank=True)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
-    googleId = models.CharField(max_length=255, null=True, blank=True)
-    createdAt = models.DateTimeField(auto_now_add=True)
-    updatedAt = models.DateTimeField(auto_now=True)
+class User(AbstractUser):
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='User')
 
     def __str__(self):
-        return f"{self.name} ({self.role})"
+        return f"{self.username} ({self.role})"
 
 class Category(models.Model):
     categoryId = models.AutoField(primary_key=True)

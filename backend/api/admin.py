@@ -4,13 +4,22 @@ from .models import (
     Customer, Invoice, Purchase, Transaction, ActivityLog
 )
 
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+
 # ------------------- User -------------------
 @admin.register(User)
-class UserAdmin(admin.ModelAdmin):
-    list_display = ('name', 'email', 'role', 'createdAt')
-    list_filter = ('role',)
-    search_fields = ('name', 'email')
-    ordering = ('-createdAt',)
+class UserAdmin(BaseUserAdmin):
+    list_display = ('username', 'email', 'role', 'is_staff', 'date_joined')
+    list_filter = ('role', 'is_staff', 'is_superuser', 'groups')
+    search_fields = ('username', 'first_name', 'last_name', 'email')
+    ordering = ('-date_joined',)
+    fieldsets = (
+        (None, {'fields': ('username', 'password')}),
+        ('Personal info', {'fields': ('first_name', 'last_name', 'email')}),
+        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Important dates', {'fields': ('last_login', 'date_joined')}),
+        ('Custom Fields', {'fields': ('role',)}),
+    )
 
 # ------------------- Category -------------------
 @admin.register(Category)

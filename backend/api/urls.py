@@ -16,6 +16,9 @@ router.register(r'purchases', views.PurchaseViewSet)
 router.register(r'transactions', views.TransactionViewSet)
 router.register(r'activitylogs', views.ActivityLogViewSet)
 
+from .authentication import LoginView
+
 urlpatterns = [
+    path('login/', LoginView.as_view(), name='login'),
     path('', include(router.urls)),
 ]

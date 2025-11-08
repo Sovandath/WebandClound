@@ -4,6 +4,10 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Package, Menu, AlertCircle } from "lucide-react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Package, Menu, AlertCircle } from "lucide-react"
 import { getInventoryItems } from "@/lib/supabase-storage"
 import { createClient } from "@/lib/supabase/client"
 import { Sidebar } from "@/components/navigation/sidebar"
@@ -81,6 +85,8 @@ export default function InventoryPage() {
             </div>
           </div>
         </div>
+
+        
 
         {dbError === "database_not_setup" && (
           <Alert variant="destructive" className="mb-6">
