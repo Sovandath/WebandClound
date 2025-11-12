@@ -79,7 +79,7 @@ WSGI_APPLICATION = 'core.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'Inventory',     # Database name you want Django to use/create
+        'NAME': 'Inventory',     # name you want Django to use/create
         'USER': 'sovandeth',      # PostgreSQL username
         'PASSWORD': 'Smokey@0404', # Your password
         'HOST': 'localhost',
