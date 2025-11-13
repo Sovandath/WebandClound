@@ -146,7 +146,6 @@ class Invoice(models.Model):
     tax = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     grandTotal = models.DecimalField(max_digits=10, decimal_places=2)
     paymentMethod = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES)
-    invoiceDate = models.DateTimeField()
     note = models.TextField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=INVOICE_STATUS_CHOICES, default='Draft')
     qrReference = models.CharField(max_length=255, null=True, blank=True)
@@ -207,4 +206,4 @@ class ActivityLog(models.Model):
     createdAt = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.actionType} by {self.user.name if self.user else 'Unknown'}"
+        return f"{self.actionType} by {self.user.username if self.user else 'Unknown'}"

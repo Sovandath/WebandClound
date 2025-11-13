@@ -56,6 +56,8 @@ class ProductAdmin(admin.ModelAdmin):
             'fields': ('subcategory', 'source', 'status', 'unit')
         }),
     )
+    # Enable autocomplete for this model to be used in other admins
+    # This is used by InventoryAdmin, PurchaseInline, etc.
 
 # ------------------- Inventory -------------------
 @admin.register(Inventory)
@@ -90,11 +92,11 @@ class PurchaseInline(admin.TabularInline):
 # ------------------- Invoice -------------------
 @admin.register(Invoice)
 class InvoiceAdmin(admin.ModelAdmin):
-    list_display = ('invoiceId', 'customer', 'grandTotal', 'status', 'invoiceDate', 'createdByUser')
-    list_filter = ('status', 'paymentMethod', 'invoiceDate')
+    list_display = ('invoiceId', 'customer', 'grandTotal', 'status', 'createdAt', 'createdByUser')
+    list_filter = ('status', 'paymentMethod', 'createdAt')
     search_fields = ('invoiceId', 'customer__name')
     autocomplete_fields = ('customer', 'createdByUser')
-    date_hierarchy = 'invoiceDate'
+    date_hierarchy = 'createdAt'
     inlines = [PurchaseInline]
 
 # ------------------- Purchase -------------------
@@ -118,6 +120,6 @@ class TransactionAdmin(admin.ModelAdmin):
 class ActivityLogAdmin(admin.ModelAdmin):
     list_display = ('actionType', 'user', 'description', 'createdAt')
     list_filter = ('actionType', 'user')
-    search_fields = ('description', 'user__name')
+    search_fields = ('description', 'user__username')
     date_hierarchy = 'createdAt'
     readonly_fields = ('createdAt',)
