@@ -9,14 +9,14 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 # ------------------- User -------------------
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ('username', 'email', 'role', 'is_staff', 'date_joined')
-    list_filter = ('role', 'is_staff', 'is_superuser', 'groups')
+    list_display = ('username', 'email', 'role', 'date_joined')
+    list_filter = ('role', 'is_superuser', 'groups')
     search_fields = ('username', 'first_name', 'last_name', 'email')
     ordering = ('-date_joined',)
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
         ('Personal info', {'fields': ('first_name', 'last_name', 'email')}),
-        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Permissions', {'fields': ('is_active', 'is_superuser', 'groups', 'user_permissions')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
         ('Custom Fields', {'fields': ('role',)}),
     )

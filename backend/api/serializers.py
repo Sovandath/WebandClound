@@ -20,7 +20,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'is_staff', 'password']
+        fields = ['id', 'username', 'email', 'role', 'password']
 
     def create(self, validated_data):
         # Pop the password and create user with hashed password

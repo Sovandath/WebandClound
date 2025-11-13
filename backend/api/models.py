@@ -4,16 +4,18 @@ from django.contrib.auth.models import AbstractUser
 
 # Reusable role choices for model
 ROLE_CHOICES = [
-    ('administartor', 'Administrator'),
+    ('administrator', 'Administrator'),
     ('manager', 'Manager'),
     ('staff', 'Staff'),
 ]
 
+# custom user model with extra fields (role)
 class User(AbstractUser):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='administrator')
 
     def __str__(self):
         return f"{self.username} ({self.role})"
+
 
 class Category(models.Model):
     categoryId = models.AutoField(primary_key=True)
