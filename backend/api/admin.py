@@ -4,13 +4,22 @@ from .models import (
     Customer, Invoice, Purchase, Transaction, ActivityLog
 )
 
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+
 # ------------------- User -------------------
 @admin.register(User)
-class UserAdmin(admin.ModelAdmin):
-    list_display = ('name', 'email', 'role', 'createdAt')
-    list_filter = ('role',)
-    search_fields = ('name', 'email')
-    ordering = ('-createdAt',)
+class UserAdmin(BaseUserAdmin):
+    list_display = ('username', 'email', 'role', 'date_joined')
+    list_filter = ('role', 'is_superuser', 'groups')
+    search_fields = ('username', 'first_name', 'last_name', 'email')
+    ordering = ('-date_joined',)
+    fieldsets = (
+        (None, {'fields': ('username', 'password')}),
+        ('Personal info', {'fields': ('first_name', 'last_name', 'email')}),
+        ('Permissions', {'fields': ('is_active', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Important dates', {'fields': ('last_login', 'date_joined')}),
+        ('Custom Fields', {'fields': ('role',)}),
+    )
 
 # ------------------- Category -------------------
 @admin.register(Category)
@@ -47,6 +56,8 @@ class ProductAdmin(admin.ModelAdmin):
             'fields': ('subcategory', 'source', 'status', 'unit')
         }),
     )
+    # Enable autocomplete for this model to be used in other admins
+    # This is used by InventoryAdmin, PurchaseInline, etc.
 
 # ------------------- Inventory -------------------
 @admin.register(Inventory)
@@ -81,11 +92,11 @@ class PurchaseInline(admin.TabularInline):
 # ------------------- Invoice -------------------
 @admin.register(Invoice)
 class InvoiceAdmin(admin.ModelAdmin):
-    list_display = ('invoiceId', 'customer', 'grandTotal', 'status', 'invoiceDate', 'createdByUser')
-    list_filter = ('status', 'paymentMethod', 'invoiceDate')
+    list_display = ('invoiceId', 'customer', 'grandTotal', 'status', 'createdAt', 'createdByUser')
+    list_filter = ('status', 'paymentMethod', 'createdAt')
     search_fields = ('invoiceId', 'customer__name')
     autocomplete_fields = ('customer', 'createdByUser')
-    date_hierarchy = 'invoiceDate'
+    date_hierarchy = 'createdAt'
     inlines = [PurchaseInline]
 
 # ------------------- Purchase -------------------
@@ -109,6 +120,6 @@ class TransactionAdmin(admin.ModelAdmin):
 class ActivityLogAdmin(admin.ModelAdmin):
     list_display = ('actionType', 'user', 'description', 'createdAt')
     list_filter = ('actionType', 'user')
-    search_fields = ('description', 'user__name')
+    search_fields = ('description', 'user__username')
     date_hierarchy = 'createdAt'
     readonly_fields = ('createdAt',)
