@@ -16,12 +16,24 @@ class User(AbstractUser):
     def __str__(self):
         return f"{self.username} ({self.role})"
 
+class UserProfile(models.Model):
+    profileId = models.AutoField(primary_key=True)
+    user = models.OneToOneField('User', on_delete=models.CASCADE, related_name='profile')
+    qrCodeImage = models.ImageField(upload_to='qr_codes/', null=True, blank=True)  # QR code image file
+    businessName = models.CharField(max_length=255, null=True, blank=True)
+    businessAddress = models.TextField(null=True, blank=True)
+    businessPhone = models.CharField(max_length=50, null=True, blank=True)
+    businessEmail = models.EmailField(max_length=255, null=True, blank=True)
+    taxId = models.CharField(max_length=100, null=True, blank=True)
+    updatedAt = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Profile of {self.user.username}"
+
 
 class Category(models.Model):
     categoryId = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255)
-    description = models.TextField()
-    slug = models.SlugField(max_length=255, null=True, blank=True)
     createdAt = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -31,7 +43,6 @@ class SubCategory(models.Model):
     subcategoryId = models.AutoField(primary_key=True)
     category = models.ForeignKey('Category', on_delete=models.CASCADE, related_name='subcategories')
     name = models.CharField(max_length=255)
-    description = models.TextField()
     createdAt = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -65,6 +76,9 @@ class Product(models.Model):
     image = models.CharField(max_length=500, null=True, blank=True)  # URL or path to image
     skuCode = models.CharField(max_length=100, unique=True)
     unit = models.CharField(max_length=50)  # e.g., pcs, box, kg
+    costPrice = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Original price from supplier
+    salePrice = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Sale price to customers
+    discount = models.DecimalField(max_digits=5, decimal_places=2, default=0)  # Discount percentage
     subcategory = models.ForeignKey('SubCategory', on_delete=models.CASCADE, related_name='products')
     source = models.ForeignKey('Source', on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active')
@@ -78,7 +92,6 @@ class Inventory(models.Model):
     inventoryId = models.AutoField(primary_key=True)
     product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name='inventory_records')
     quantity = models.IntegerField()
-    costPrice = models.DecimalField(max_digits=10, decimal_places=2)
     reorderLevel = models.IntegerField()
     location = models.CharField(max_length=255)
     updatedAt = models.DateTimeField(auto_now=True)
@@ -112,7 +125,7 @@ class Customer(models.Model):
     name = models.CharField(max_length=255)
     businessAddress = models.TextField()
     phone = models.CharField(max_length=50)
-    email = models.EmailField()
+    email = models.EmailField(blank=True, null=True)
     customerType = models.CharField(max_length=20, choices=CUSTOMER_TYPE_CHOICES)
     firstPurchaseDate = models.DateField(null=True, blank=True)
     createdAt = models.DateTimeField(auto_now_add=True)
@@ -124,22 +137,20 @@ class Customer(models.Model):
 # Reusable enums for payment method and invoice status
 PAYMENT_METHOD_CHOICES = [
     ('Cash', 'Cash'),
-    ('Card', 'Card'),
     ('KHQR', 'KHQR'),
-    ('BankTransfer', 'BankTransfer'),
-    ('Other', 'Other'),
 ]
 
 INVOICE_STATUS_CHOICES = [
-    ('Draft', 'Draft'),
+    ('Pending', 'Pending'),
     ('Paid', 'Paid'),
-    ('Unpaid', 'Unpaid'),
     ('Cancelled', 'Cancelled'),
 ]
 
 class Invoice(models.Model):
     invoiceId = models.AutoField(primary_key=True)
-    customer = models.ForeignKey('Customer', on_delete=models.SET_NULL, null=True, related_name='invoices')
+    customer = models.ForeignKey('Customer', on_delete=models.SET_NULL, null=True, blank=True, related_name='invoices')
+    customerName = models.CharField(max_length=255, default='Guest')  # Direct customer name input
+    customerPhone = models.CharField(max_length=50, null=True, blank=True)  # Optional phone
     createdByUser = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, related_name='invoices_created')
     totalBeforeDiscount = models.DecimalField(max_digits=10, decimal_places=2)
     discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -147,12 +158,22 @@ class Invoice(models.Model):
     grandTotal = models.DecimalField(max_digits=10, decimal_places=2)
     paymentMethod = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES)
     note = models.TextField(null=True, blank=True)
-    status = models.CharField(max_length=20, choices=INVOICE_STATUS_CHOICES, default='Draft')
-    qrReference = models.CharField(max_length=255, null=True, blank=True)
+    status = models.CharField(max_length=20, choices=INVOICE_STATUS_CHOICES, default='Pending')
+    paidAt = models.DateTimeField(null=True, blank=True)  # Timestamp when invoice was marked as paid
+    
+    # KHQR Payment Fields
+    khqrCodeString = models.TextField(null=True, blank=True)  # QR code string generated by KHQR SDK
+    khqrMd5 = models.CharField(max_length=255, null=True, blank=True)  # MD5 hash of QR code
+    khqrTransactionHash = models.CharField(max_length=255, null=True, blank=True)  # Full transaction hash (64 chars)
+    khqrShortHash = models.CharField(max_length=8, null=True, blank=True)  # Short transaction hash (8 chars)
+    khqrDeeplink = models.TextField(null=True, blank=True)  # Payment deeplink URL
+    khqrLastCheckedAt = models.DateTimeField(null=True, blank=True)  # Last time we checked payment status
+    khqrPaymentData = models.JSONField(null=True, blank=True)  # Store full payment response from KHQR
+    
     createdAt = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Invoice #{self.invoiceId} — {self.status}"
+        return f"Invoice #{self.invoiceId} — {self.customerName} — {self.status}"
 
 
 class Purchase(models.Model):

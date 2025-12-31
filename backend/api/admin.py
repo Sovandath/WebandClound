@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (
-    User, Category, SubCategory, Source, Product, Inventory, NewStock,
+    User, UserProfile, Category, SubCategory, Source, Product, Inventory, NewStock,
     Customer, Invoice, Purchase, Transaction, ActivityLog
 )
 
@@ -21,12 +21,17 @@ class UserAdmin(BaseUserAdmin):
         ('Custom Fields', {'fields': ('role',)}),
     )
 
+# ------------------- UserProfile -------------------
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'businessName', 'businessPhone', 'updatedAt')
+    search_fields = ('user__username', 'businessName')
+
 # ------------------- Category -------------------
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'slug', 'createdAt')
+    list_display = ('name', 'createdAt')
     search_fields = ('name',)
-    prepopulated_fields = {'slug': ('name',)}
 
 # ------------------- SubCategory -------------------
 @admin.register(SubCategory)

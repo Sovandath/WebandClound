@@ -2,6 +2,7 @@ from rest_framework import serializers
 from decimal import Decimal
 from .models import (
     User,
+    UserProfile,
     Product, 
     Inventory, 
     Category, 
@@ -21,7 +22,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'password']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'password']
 
     def create(self, validated_data):
         # Pop the password and create user with hashed password
@@ -41,15 +42,20 @@ class UserSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ['profileId', 'user', 'qrCodeImage', 'businessName', 'businessAddress', 'businessPhone', 'businessEmail', 'taxId', 'updatedAt']
+
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = ['categoryId', 'name', 'description', 'slug', 'createdAt']
+        fields = ['categoryId', 'name', 'createdAt']
         
 class SubCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = SubCategory
-        fields = ['subcategoryId', 'category', 'name', 'description', 'createdAt']
+        fields = ['subcategoryId', 'category', 'name', 'createdAt']
 
 class SourceSerializer(serializers.ModelSerializer):
     class Meta:
@@ -59,17 +65,48 @@ class SourceSerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = ['productId', 'productName', 'description', 'image', 'skuCode', 'unit', 'status', 'subcategory', 'source', 'createdAt']
+        fields = ['productId', 'productName', 'description', 'image', 'skuCode', 'unit', 'costPrice', 'salePrice', 'discount', 'status', 'subcategory', 'source', 'createdAt']
+    
+    def to_representation(self, instance):
+        """Hide costPrice from staff users"""
+        representation = super().to_representation(instance)
+        request = self.context.get('request')
+        
+        # Hide cost price from staff users
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            if request.user.role == 'staff':
+                representation.pop('costPrice', None)
+        
+        return representation
 
 class InventorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Inventory
-        fields = ['inventoryId', 'product', 'quantity', 'costPrice', 'reorderLevel', 'location', 'updatedAt']
+        fields = ['inventoryId', 'product', 'quantity', 'reorderLevel', 'location', 'updatedAt']
 
 class NewStockSerializer(serializers.ModelSerializer):
+    productName = serializers.SerializerMethodField()
+    productSku = serializers.SerializerMethodField()
+    supplierName = serializers.SerializerMethodField()
+    userName = serializers.SerializerMethodField()
+    
     class Meta:
         model = NewStock
-        fields = ['newstockId', 'inventory', 'quantity', 'purchasePrice', 'receivedDate', 'supplier', 'addedByUser', 'note', 'createdAt']
+        fields = ['newstockId', 'inventory', 'quantity', 'purchasePrice', 'receivedDate', 
+                  'supplier', 'addedByUser', 'note', 'createdAt', 'productName', 'productSku', 
+                  'supplierName', 'userName']
+    
+    def get_productName(self, obj):
+        return obj.inventory.product.productName if obj.inventory and obj.inventory.product else None
+    
+    def get_productSku(self, obj):
+        return obj.inventory.product.skuCode if obj.inventory and obj.inventory.product else None
+    
+    def get_supplierName(self, obj):
+        return obj.supplier.name if obj.supplier else None
+    
+    def get_userName(self, obj):
+        return obj.addedByUser.username if obj.addedByUser else None
 
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
@@ -80,6 +117,14 @@ class PurchaseNestedSerializer(serializers.ModelSerializer):
     class Meta:
         model = Purchase
         fields = ['product', 'quantity', 'pricePerUnit', 'discount']
+
+class PurchaseReadSerializer(serializers.ModelSerializer):
+    """Serializer for reading purchase details with product name"""
+    productName = serializers.CharField(source='product.productName', read_only=True)
+    
+    class Meta:
+        model = Purchase
+        fields = ['purchaseId', 'product', 'productName', 'quantity', 'pricePerUnit', 'discount', 'subtotal']
 
 class InvoiceSerializer(serializers.ModelSerializer):
     # Allow submitting purchases together
@@ -93,15 +138,19 @@ class InvoiceSerializer(serializers.ModelSerializer):
     discount = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     tax = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)  # Calculated from taxPercentage
     grandTotal = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    
+    # Read-only fields for displaying names
+    createdByUsername = serializers.CharField(source='createdByUser.username', read_only=True)
+    purchases = PurchaseReadSerializer(many=True, read_only=True)
 
     class Meta:
         model = Invoice
         fields = [
-            'invoiceId', 'customer', 'createdByUser',
-            'paymentMethod', 'note', 'status',
-            'qrReference', 'createdAt',
-            'lineItems', 'taxPercentage', 'totalBeforeDiscount', 'discount', 'tax', 'grandTotal'
+            'invoiceId', 'customer', 'customerName', 'customerPhone', 'createdByUser', 'createdByUsername',
+            'paymentMethod', 'note', 'status', 'createdAt', 'paidAt',
+            'lineItems', 'purchases', 'taxPercentage', 'totalBeforeDiscount', 'discount', 'tax', 'grandTotal'
         ]
+        read_only_fields = ['invoiceId', 'createdByUser', 'createdAt', 'paidAt']
 
     def create(self, validated_data):
         line_items_data = validated_data.pop('lineItems')
@@ -165,6 +214,8 @@ class TransactionSerializer(serializers.ModelSerializer):
         fields = ['transactionId', 'invoice', 'customer', 'amountPaid', 'paymentMethod', 'transactionStatus', 'paymentReference', 'transactionDate', 'recordedByUser']
 
 class ActivityLogSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+    
     class Meta:
         model = ActivityLog
-        fields = ['logId', 'user', 'actionType', 'description', 'createdAt']
+        fields = ['logId', 'user', 'username', 'actionType', 'description', 'createdAt']

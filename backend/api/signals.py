@@ -3,88 +3,33 @@ from django.dispatch import receiver
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from .models import (
-    Purchase, Inventory, Invoice, Transaction, ActivityLog,
+    Purchase, Inventory, Invoice, ActivityLog,
     Product, Category, SubCategory, Source, NewStock, Customer, User
 )
 
-# Store the previous status of invoice before update
-_invoice_previous_status = {}
 # Store previous states for activity logging
 _model_previous_states = {}
+_invoice_previous_status = {}
 
 @receiver(post_save, sender=Purchase)
 def update_inventory_on_purchase(sender, instance, created, **kwargs):
     """
     Automatically reduce inventory when a purchase is created.
     This signal is triggered when creating invoices with line items.
+    NOTE: Stock validation is done in InvoiceSerializer.create() before creating Purchase records.
     """
     if created:
         try: 
             inventory = Inventory.objects.get(product=instance.product)
             
-            # Check if there's enough stock
-            if inventory.quantity < instance.quantity:
-                raise ValidationError(
-                    f"Insufficient stock for {instance.product.productName}. "
-                    f"Available: {inventory.quantity}, Requested: {instance.quantity}"
-                )
-            
+            # Reduce inventory (validation already done in serializer)
             inventory.quantity -= instance.quantity
             inventory.save()
         except Inventory.DoesNotExist:
-            # Handle the case where inventory does not exist
-            raise ValidationError(
-                f"No inventory record found for product: {instance.product.productName}"
-            )
-
-
-@receiver(pre_save, sender=Invoice)
-def store_previous_invoice_status(sender, instance, **kwargs):
-    """
-    Store the previous status of the invoice before it's updated.
-    This allows us to detect status changes in the post_save signal.
-    """
-    if instance.pk:  # Only for existing invoices (updates)
-        try:
-            previous = Invoice.objects.get(pk=instance.pk)
-            _invoice_previous_status[instance.pk] = previous.status
-        except Invoice.DoesNotExist:
-            pass
-
-
-@receiver(post_save, sender=Invoice)
-def create_transaction_on_invoice_paid(sender, instance, created, **kwargs):
-    """
-    Automatically create a transaction when an invoice status changes to 'Paid'.
-    This tracks when an invoice transitions from any status (Draft, Unpaid) to 'Paid'.
-    """
-    # Get the previous status
-    previous_status = _invoice_previous_status.get(instance.pk)
-    
-    # Only process if invoice already exists (not being created) and status changed to 'Paid'
-    if not created and instance.status == 'Paid' and previous_status != 'Paid':
-        # Check if a completed transaction already exists for this invoice
-        existing_transaction = Transaction.objects.filter(
-            invoice=instance,
-            transactionStatus='Completed'
-        ).first()
-        
-        # Only create if no completed transaction exists
-        if not existing_transaction:
-            Transaction.objects.create(
-                invoice=instance,
-                customer=instance.customer,
-                amountPaid=instance.grandTotal,
-                paymentMethod=instance.paymentMethod,
-                transactionStatus='Completed',
-                paymentReference=instance.qrReference,
-                transactionDate=timezone.now(),
-                recordedByUser=instance.createdByUser
-            )
-    
-    # Clean up the stored previous status
-    if instance.pk in _invoice_previous_status:
-        del _invoice_previous_status[instance.pk]
+            # This should not happen if serializer validation works correctly
+            # But we log it for debugging purposes
+            print(f"WARNING: No inventory record found for product: {instance.product.productName}")
+            pass  # Don't raise error in signal to avoid transaction issues
 
 
 # ==================== ACTIVITY LOGGING ====================
@@ -207,6 +152,21 @@ def log_newstock_activity(sender, instance, created, **kwargs):
 
 
 # ----- Invoice Activity Logging -----
+@receiver(pre_save, sender=Invoice)
+def store_previous_invoice_status_and_set_paid_timestamp(sender, instance, **kwargs):
+    """Store previous invoice status and set paidAt timestamp when changing to Paid."""
+    if instance.pk:
+        try:
+            previous = Invoice.objects.get(pk=instance.pk)
+            _invoice_previous_status[instance.pk] = previous.status
+            
+            # If status is changing from non-Paid to Paid, set paidAt timestamp
+            if previous.status != 'Paid' and instance.status == 'Paid':
+                instance.paidAt = timezone.now()
+        except Invoice.DoesNotExist:
+            pass
+
+
 @receiver(post_save, sender=Invoice)
 def log_invoice_activity(sender, instance, created, **kwargs):
     """Log when invoices are created or updated."""
@@ -270,36 +230,6 @@ def log_customer_deletion(sender, instance, **kwargs):
         user=None,
         actionType='DELETE_CUSTOMER',
         description=f"Deleted customer: {instance.name}"
-    )
-
-
-# ----- Transaction Activity Logging -----
-@receiver(post_save, sender=Transaction)
-def log_transaction_activity(sender, instance, created, **kwargs):
-    """Log when transactions are created or updated."""
-    user = instance.recordedByUser
-    
-    if created:
-        ActivityLog.objects.create(
-            user=user,
-            actionType='CREATE_TRANSACTION',
-            description=f"Recorded transaction #{instance.transactionId} - Invoice #{instance.invoice.invoiceId} - Amount: ${instance.amountPaid} - Method: {instance.paymentMethod} - Status: {instance.transactionStatus}"
-        )
-    else:
-        ActivityLog.objects.create(
-            user=user,
-            actionType='UPDATE_TRANSACTION',
-            description=f"Updated transaction #{instance.transactionId} - Status: {instance.transactionStatus}"
-        )
-
-
-@receiver(post_delete, sender=Transaction)
-def log_transaction_deletion(sender, instance, **kwargs):
-    """Log when transactions are deleted."""
-    ActivityLog.objects.create(
-        user=instance.recordedByUser,
-        actionType='DELETE_TRANSACTION',
-        description=f"Deleted transaction #{instance.transactionId}"
     )
 
 
